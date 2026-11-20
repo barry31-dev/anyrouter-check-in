@@ -279,6 +279,26 @@ async def prepare_cookies(account_name: str, provider_config, user_cookies: dict
 	return {**waf_cookies, **user_cookies}
 
 
+async def browser_check_in(account_name: str, provider_config, provider_name: str, cookies: dict):
+	"""Use a real browser context to trigger auto check-in via /api/user/self."""
+	settings = load_browser_login_settings(account_name, provider_name, persist_profile=False)
+	context = await launch_login_context(settings, use_proxy=provider_config.use_proxy)
+	try:
+		await context.add_cookies([
+			{'name': name, 'value': value, 'url': provider_config.domain}
+			for name, value in cookies.items() if name and value
+		])
+		page = await context.new_page()
+		await prepare_browser_page(page)
+		profile = await verify_browser_login(page, f'{provider_config.domain}/console', settings.wait_timeout_ms)
+		return profile
+	except Exception as e:
+		print(f'[FAILED] {account_name}: Browser check-in failed - {str(e)[:120]}')
+		return None
+	finally:
+		await context.close()
+
+
 def execute_check_in(client, account_name: str, provider_config, headers: dict):
 	"""执行签到请求"""
 	print(f'[NETWORK] {account_name}: Executing check-in')
@@ -397,6 +417,20 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 		return False, None, None
 
 	print(f'[AUTH] {account_name}: Using auth method -> {auth_method}')
+
+	if not provider_config.needs_manual_check_in():
+		profile = await browser_check_in(account_name, provider_config, account.provider, all_cookies)
+		if not profile:
+			return False, None, None
+		quota = round((profile.get('quota') or 0) / 500000, 2)
+		used_quota = round((profile.get('used_quota') or 0) / 500000, 2)
+		info = {
+			'success': True,
+			'quota': quota,
+			'used_quota': used_quota,
+			'display': f':money: Current balance: ${quota}, Used: ${used_quota}',
+		}
+		return True, info, info
 
 	return run_check_in_requests(
 		all_cookies,
