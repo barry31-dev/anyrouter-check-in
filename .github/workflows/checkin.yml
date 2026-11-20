@@ -1,3 +1,4 @@
+# trigger workflow indexing
 name: AnyRouter 自动签到
 on:
   schedule:
