@@ -384,6 +384,8 @@ def _extract_user_profile(payload: object) -> dict | None:
 
 
 async def _parse_user_self_response(response) -> dict | None:
+	if USER_SELF_API_SUFFIX in response.url and is_debug_enabled():
+		print(f'[DEBUG] browser user_self status={response.status}, body={(await response.text())[:300]!r}')
 	if USER_SELF_API_SUFFIX not in response.url or response.status != 200:
 		return None
 	try:
