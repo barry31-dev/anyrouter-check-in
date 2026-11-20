@@ -253,6 +253,8 @@ def get_user_info(client, headers, user_info_url: str):
 				}
 		return {'success': False, 'error': f'Failed to get user info: HTTP {response.status_code}'}
 	except Exception as e:
+		if is_debug_enabled():
+			print(f'[DEBUG] user_info status={response.status_code}, body={response.text[:300]!r}')
 		return {'success': False, 'error': f'Failed to get user info: {str(e)[:50]}...'}
 
 
